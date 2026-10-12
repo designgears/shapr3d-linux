@@ -1,0 +1,6 @@
+#!/bin/sh
+# wine-uwp's check, run on this repository (WINE_UWP, by default ../wine-uwp)
+top=$(git rev-parse --show-toplevel)
+w=${WINE_UWP:-$top/../wine-uwp}
+[ -x "$w/check-clean.sh" ] || { echo "pre-commit: no wine-uwp checkout at $w for check-clean.sh" >&2; exit 1; }
+exec "$w/check-clean.sh"
