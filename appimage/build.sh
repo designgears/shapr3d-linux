@@ -54,5 +54,9 @@ sed -e 's/^Icon=.*/Icon=wine-uwp/' \
   "$SHAPR3D_LINUX/flatpak/io.github.wine_uwp.WineUWP.desktop" > "$app/wine-uwp.desktop"
 
 echo "STAGE Packing"
-ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$tool" --no-appstream "$app" "$out/wine-uwp-x86_64.AppImage" >/dev/null
-echo "appimage: $out/wine-uwp-x86_64.AppImage ($(du -h "$out/wine-uwp-x86_64.AppImage" | cut -f1))"
+# release.sh names the file after the version and passes UPDATE_INFO (AppImageUpdate's
+# "gh-releases-zsync|owner|repo|latest|pattern"); with it appimagetool embeds that and writes NAME.zsync beside it
+name=${APPIMAGE_NAME:-wine-uwp-x86_64.AppImage}
+upd=(); [ -n "${UPDATE_INFO:-}" ] && upd=(-u "$UPDATE_INFO")
+(cd "$out" && ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 "$tool" --no-appstream "${upd[@]}" "$app" "$out/$name" >/dev/null)
+echo "appimage: $out/$name ($(du -h "$out/$name" | cut -f1))"

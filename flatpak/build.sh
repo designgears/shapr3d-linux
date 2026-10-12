@@ -18,6 +18,8 @@ mkdir -p "$out"
 # from the wine-uwp checkout, and the installer from this repo
 "$WINE_UWP/packaging/build-dist.sh" --no-wine "$here/.build/dist" | grep -v '^STAGE Done'
 rm -rf "$here/.build/wine"; cp -a --reflink=auto "$WINE_UWP/wine" "$here/.build/wine"
+# what this build is: share/wine-uwp/VERSION has wine-uwp's commit; this adds the release and this repo's commit
+{ echo "${RELEASE_VERSION:-dev}"; git -C "$SHAPR3D_LINUX" rev-parse --short HEAD; } > "$here/.build/dist/share/wine-uwp/SHAPR3D_LINUX_VERSION"
 
 builder=(flatpak run --filesystem="$SHAPR3D_LINUX" --filesystem="$out" org.flatpak.Builder)
 "${builder[@]}" --user --force-clean --ccache --state-dir="$out/state" --repo="$out/repo" \

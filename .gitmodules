@@ -1,0 +1,3 @@
+[submodule "wine-uwp"]
+	path = wine-uwp
+	url = https://github.com/designgears/wine-uwp.git
