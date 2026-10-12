@@ -1,10 +1,10 @@
 [Desktop Entry]
 Type=Application
-Name=Shapr3D (wine-uwp)
+Name=Shapr3D for Linux
 GenericName=3D CAD
 Comment=Run the Windows version of Shapr3D; sets itself up on first start
 Exec=wine-uwp %u
-Icon=io.github.wine_uwp.WineUWP
+Icon=io.github.designgears.Shapr3DLinux
 Terminal=false
 Categories=Graphics;3DGraphics;Engineering;
 Keywords=CAD;3D;modeling;Shapr3D;Windows;

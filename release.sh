@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build a release AppImage of Shapr3D for Linux from committed, pushed sources, and test it.
+# Build a release of Shapr3D for Linux - an AppImage and a Flatpak bundle - from committed, pushed sources, and test
+# both.
 #
 #   ./release.sh VERSION            e.g. ./release.sh 2026.10.1
 #
@@ -9,12 +10,13 @@
 #
 #   shapr3d-linux-VERSION-x86_64.AppImage   with AppImageUpdate info for this repo's GitHub releases
 #   shapr3d-linux-VERSION-x86_64.AppImage.zsync
+#   shapr3d-linux-VERSION-x86_64.flatpak    a single-file bundle (flatpak install --user FILE)
 #   SHA256SUMS
-#   smoke.png, smoke.log                    appimage/smoke.sh's run (set SMOKE_PACKAGE and SMOKE_ISO or
-#                                           SMOKE_WINDOWS; SMOKE=0 skips it, and the release is then untested)
+#   smoke-*.png, smoke-*.log                appimage/smoke.sh's runs of both (set SMOKE_PACKAGE and SMOKE_ISO or
+#                                           SMOKE_WINDOWS; SMOKE=0 skips them, and the release is then untested)
 #
 # Needs: clang-cl, lld-link and the xwin SDK in ~/xwin (the shims), org.flatpak.Builder with the freedesktop 25.08
-# SDK and its mingw-w64 and rust-stable extensions (appimage/build.sh), Xvfb, xdotool and ImageMagick (the smoke test).
+# SDK and its mingw-w64 and rust-stable extensions (flatpak/build.sh), Xvfb, xdotool and ImageMagick (the smoke test).
 set -euo pipefail
 version=${1:?usage: ./release.sh VERSION}
 here=$(cd "$(dirname "$0")" && pwd)
@@ -40,18 +42,23 @@ mkdir -p "$UWP_BIN" "$rel"
 echo "STAGE Building the shims"
 "$WINE_UWP/build.sh"
 
+echo "STAGE Building the Flatpak"
+FLATPAK_NAME=${name%.AppImage}.flatpak flatpak/build.sh "$rel"
+
 echo "STAGE Building the AppImage"
 APPIMAGE_NAME=$name UPDATE_INFO="gh-releases-zsync|${repo%/*}|${repo#*/}|latest|shapr3d-linux-*x86_64.AppImage.zsync" \
   appimage/build.sh "$rel"
 rm -rf "$rel/AppDir"
 [ -f "$rel/$name.zsync" ] || fail "appimagetool wrote no $name.zsync"
-(cd "$rel" && sha256sum "$name" "$name.zsync" > SHA256SUMS)
+(cd "$rel" && sha256sum "$name" "$name.zsync" "${name%.AppImage}.flatpak" > SHA256SUMS)
 
 if [ "${SMOKE:-1}" = 0 ]; then
-  echo "release: SMOKE=0, the AppImage was not tested" >&2
+  echo "release: SMOKE=0, the AppImage and the Flatpak were not tested" >&2
 else
-  echo "STAGE Smoke test"
-  appimage/smoke.sh "$rel/$name" "$rel"
+  echo "STAGE Smoke test: AppImage"
+  SMOKE_TAG=smoke-appimage appimage/smoke.sh "$rel/$name" "$rel"
+  echo "STAGE Smoke test: Flatpak"
+  SMOKE_TAG=smoke-flatpak appimage/smoke.sh --flatpak "$UWP_BIN/sdk-build/build" "$rel"
 fi
 echo "release: $rel"
 ls -la "$rel"

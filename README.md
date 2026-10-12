@@ -1,7 +1,7 @@
 <h1 align="center">Shapr3D for Linux</h1>
 
 <p align="center">
-  Run the Windows version of <a href="https://www.shapr3d.com">Shapr3D</a> on Linux, from a single AppImage.
+  Run the Windows version of <a href="https://www.shapr3d.com">Shapr3D</a> on Linux, as an AppImage or a Flatpak.
 </p>
 
 <p align="center">
@@ -27,13 +27,19 @@
 
 ## Getting started
 
-1. **Download** `shapr3d-linux-<version>-x86_64.AppImage` from the
-   [latest release](https://github.com/designgears/shapr3d-linux/releases/latest).
-2. **Make it executable and run it:**
-   ```sh
-   chmod +x shapr3d-linux-*-x86_64.AppImage
-   ./shapr3d-linux-*-x86_64.AppImage
-   ```
+1. **Download** from the [latest release](https://github.com/designgears/shapr3d-linux/releases/latest), either:
+   - the **AppImage** (`shapr3d-linux-<version>-x86_64.AppImage`): one file, runs anywhere;
+   - or the **Flatpak** (`shapr3d-linux-<version>-x86_64.flatpak`): sandboxed, installed like any Flatpak app.
+2. **Start it.**
+   - AppImage: make it executable and run it:
+     ```sh
+     chmod +x shapr3d-linux-*-x86_64.AppImage
+     ./shapr3d-linux-*-x86_64.AppImage
+     ```
+   - Flatpak: install it, then open *Shapr3D for Linux* from your applications menu:
+     ```sh
+     flatpak install --user shapr3d-linux-*-x86_64.flatpak
+     ```
 3. **Follow the setup.** It runs once and takes 10-15 minutes, most of it the download:
    - **Windows components:** Shapr3D needs parts of Windows that Linux doesn't have. The setup downloads
      Microsoft's free Windows 11 evaluation image (7.1 GB) straight from Microsoft, takes out the few
@@ -46,42 +52,51 @@
   <img src="docs/screenshots/installer/1-welcome.png" alt="The setup" width="640">
 </p>
 
-After the first run, the same AppImage starts Shapr3D directly. The setup can add Shapr3D to your applications
-menu, which is also what lets the browser hand the sign-in back.
+After the first run, the same AppImage or app starts Shapr3D directly. The AppImage's setup can add Shapr3D to your
+applications menu, which is also what lets the browser hand the sign-in back; the Flatpak does that by itself.
 
 ## Good to know
 
-- **Nothing is installed system-wide.** Everything lives in `~/.local/share/wine-uwp`.
+- **Nothing is installed system-wide.** Everything lives in `~/.local/share/wine-uwp`, or for the Flatpak in
+  `~/.var/app/io.github.designgears.Shapr3DLinux`.
 - **Your files:** Shapr3D's open and save dialogs start in your Documents folder. Its own projects sync to
   your Shapr3D cloud account as usual.
 - **Updates:** the AppImage carries update information, so
   [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) and AppImage managers such as Gear Lever
-  can update it in place. Or just download the new release.
-- **Nothing of Microsoft's or Shapr3D's is in the download.** The AppImage holds only open-source code; the
+  can update it in place. For the Flatpak, install the new release's file with `flatpak install --user --reinstall`.
+- **Nothing of Microsoft's or Shapr3D's is in the download.** The AppImage and the Flatpak hold only open-source code; the
   Windows components come from Microsoft and Shapr3D from your own installer, on your machine.
 
 ## Uninstalling
 
-Delete the AppImage, then remove its data and menu entries:
+**AppImage:** delete it, then remove its data and menu entries:
 
 ```sh
 rm -rf ~/.local/share/wine-uwp
 rm -f ~/.local/share/applications/wine-uwp-shapr3d*.desktop
 ```
 
+**Flatpak:**
+
+```sh
+flatpak uninstall --user --delete-data io.github.designgears.Shapr3DLinux
+```
+
 ## Troubleshooting
 
 **Shapr3D's window stays blank, or it closes right away.** Check that Vulkan works: `vulkaninfo --summary` should
-list your GPU. After a kernel or graphics driver update, reboot before trying again.
+list your GPU. After a kernel or graphics driver update, reboot before trying again. With the Flatpak on NVIDIA, also run `flatpak update`: Flatpak apps need
+a driver extension matching your installed NVIDIA driver version.
 
 **Signing in opens a second Shapr3D window, or nothing happens.** The browser hands the sign-in back through a
-`shapr3d:` link. Run the setup again (`./shapr3d-linux-*.AppImage setup`), leave *Add to the applications menu* on,
-and make sure no other Shapr3D-on-Linux install has claimed `shapr3d:` links (`xdg-mime query default
-x-scheme-handler/shapr3d` should name `wine-uwp-shapr3d-handler.desktop`).
+`shapr3d:` link. With the AppImage, run the setup again (`./shapr3d-linux-*.AppImage setup`) and leave *Add to the
+applications menu* on. Use only one of the AppImage and the Flatpak: whichever registered last receives
+`shapr3d:` links (`xdg-mime query default x-scheme-handler/shapr3d` names it).
 
-**The setup stopped halfway.** Start the AppImage again; it resumes where it stopped, including a partial download.
+**The setup stopped halfway.** Start it again; it resumes where it stopped, including a partial download.
 
-**Something else.** Logs are in `~/.local/share/wine-uwp/logs`. Please
+**Something else.** Logs are in `~/.local/share/wine-uwp/logs` (Flatpak:
+`~/.var/app/io.github.designgears.Shapr3DLinux/data/wine-uwp/logs`). Please
 [open an issue](https://github.com/designgears/shapr3d-linux/issues) with the log and what you were doing.
 
 ## How it works
@@ -89,7 +104,7 @@ x-scheme-handler/shapr3d` should name `wine-uwp-shapr3d-handler.desktop`).
 Shapr3D for Windows is a packaged Windows Store (UWP) app, which plain Wine cannot run.
 [wine-uwp](https://github.com/designgears/wine-uwp) is a patched Wine that can: it adds the app-package model,
 composition, and the Windows Runtime pieces such apps need, and runs Microsoft's own UI frameworks on top. This
-repository is the product around it: the setup app and the AppImage.
+repository is the product around it: the setup app, the AppImage and the Flatpak.
 
 ## Building from source
 
@@ -99,12 +114,12 @@ cd shapr3d-linux
 ./release.sh 0.0.1-dev
 ```
 
-`release.sh` builds the AppImage from the pinned `wine-uwp` submodule into `out/<version>/`, with checksums, and
-smoke-tests it: an empty setup on a private X display must reach Shapr3D's first screen. It needs:
+`release.sh` builds the Flatpak and the AppImage from the pinned `wine-uwp` submodule into `out/<version>/`, with
+checksums, and smoke-tests both: an empty setup on a private X display must reach Shapr3D's first screen. It needs:
 
 - [flatpak-builder](https://flathub.org/apps/org.flatpak.Builder) with `org.freedesktop.Sdk//25.08` and its
-  `mingw-w64` and `rust-stable` extensions. The AppImage is built inside that SDK so it runs on older distributions;
-  nothing is shipped as a Flatpak.
+  `mingw-w64` and `rust-stable` extensions. One build in that SDK makes both packages, which is also why the AppImage
+  runs on older distributions (glibc 2.38).
 - clang-cl, lld-link and the Windows SDK headers from [xwin](https://github.com/Jake-Shadle/xwin) in `~/xwin`,
   for wine-uwp's helper DLLs. They are only used to build, never shipped.
 - For the smoke test: Xvfb, xdotool, ImageMagick, and `SMOKE_PACKAGE` (a Shapr3D `.msixbundle`) plus
@@ -113,7 +128,8 @@ smoke-tests it: an empty setup on a private X display must reach Shapr3D's first
 | | |
 | --- | --- |
 | `installer/` | the setup app, in Rust and [Slint](https://slint.dev) |
-| `appimage/` | the AppImage build (`build.sh`), its build environment, and the smoke test |
+| `flatpak/` | the build in the freedesktop SDK (`build.sh`) and the Flatpak's manifest and metadata |
+| `appimage/` | the AppImage, packed from that build (`build.sh`), and the smoke test |
 | `release.sh` | a versioned, tested release |
 | `build-dist.sh` | an unpackaged build for development on your own machine |
 | `wine-uwp/` | the engine, as a submodule |

@@ -1,3 +1,4 @@
 /installer/target/
+/flatpak/.build/
 /appimage/.build/
 /out/

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.designgears.Shapr3DLinux</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LGPL-2.1-or-later</project_license>
+  <name>Shapr3D for Linux</name>
+  <summary>Run the Windows version of Shapr3D</summary>
+  <developer id="io.github.designgears">
+    <name>designgears</name>
+  </developer>
+  <description>
+    <p>
+      Runs the Windows version of Shapr3D on wine-uwp, a patched Wine for packaged Windows Store apps. This is an
+      unofficial project, not affiliated with Shapr3D.
+    </p>
+    <p>
+      On first start, a setup downloads Microsoft's Windows 11 evaluation image from Microsoft, keeps the Windows
+      components Shapr3D needs, and installs the Shapr3D for Windows package you choose. Nothing of Microsoft's or
+      Shapr3D's is included in this package.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/designgears/shapr3d-linux</url>
+  <url type="bugtracker">https://github.com/designgears/shapr3d-linux/issues</url>
+  <launchable type="desktop-id">io.github.designgears.Shapr3DLinux.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.0.1-beta" date="2026-10-12"/>
+  </releases>
+</component>
