@@ -4,7 +4,7 @@
 #   ./release.sh VERSION            e.g. ./release.sh 2026.10.1
 #
 # The wine-uwp it builds is the submodule (wine-uwp/), pinned to a commit that must be on GitHub, so the release
-# can always be rebuilt. Everything goes to out/ (gitignored): out/build is the build state (flatpak-builder's cache
+# can always be rebuilt. Everything goes to out/ (gitignored): out/build is the build state (the SDK build's cache
 # included; the first build compiles Wine), out/VERSION the release files:
 #
 #   shapr3d-linux-VERSION-x86_64.AppImage   with AppImageUpdate info for this repo's GitHub releases
@@ -14,7 +14,7 @@
 #                                           SMOKE_WINDOWS; SMOKE=0 skips it, and the release is then untested)
 #
 # Needs: clang-cl, lld-link and the xwin SDK in ~/xwin (the shims), org.flatpak.Builder with the freedesktop 25.08
-# SDK and its mingw-w64 and rust-stable extensions (the Flatpak), Xvfb, xdotool and ImageMagick (the smoke test).
+# SDK and its mingw-w64 and rust-stable extensions (appimage/build.sh), Xvfb, xdotool and ImageMagick (the smoke test).
 set -euo pipefail
 version=${1:?usage: ./release.sh VERSION}
 here=$(cd "$(dirname "$0")" && pwd)
@@ -35,14 +35,10 @@ WINE_UWP=$here/wine-uwp wine-uwp/check-clean.sh --all || fail "shapr3d-linux: ch
 [ ! -e "$rel" ] || fail "$rel exists; a version is built once"
 
 export WINE_UWP=$here/wine-uwp UWP_BIN=$here/out/build RELEASE_VERSION=$version
-export FLATPAK_OUT=$UWP_BIN/flatpak
 mkdir -p "$UWP_BIN" "$rel"
 
 echo "STAGE Building the shims"
 "$WINE_UWP/build.sh"
-
-echo "STAGE Building the Flatpak"
-flatpak/build.sh
 
 echo "STAGE Building the AppImage"
 APPIMAGE_NAME=$name UPDATE_INFO="gh-releases-zsync|${repo%/*}|${repo#*/}|latest|shapr3d-linux-*x86_64.AppImage.zsync" \

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # An installed Shapr3D for Linux tree on the host: wine-uwp's (packaging/build-dist.sh in the wine-uwp checkout:
 # Wine, the scripts, the shims) plus this repo's installer as bin/wine-uwp-installer, which `wine-uwp setup` runs.
-# The Flatpak and the AppImage build theirs in the freedesktop SDK instead (flatpak/build.sh).
+# For development and testing on this machine; the release AppImage is built in the freedesktop SDK instead
+# (appimage/build.sh).
 #
 #   ./build-dist.sh OUT
 set -euo pipefail

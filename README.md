@@ -1,14 +1,13 @@
 # Shapr3D for Linux
 
-The Windows version of Shapr3D, packaged for Linux on [wine-uwp](../wine-uwp): a setup app, a Flatpak, an AppImage
-and a Bottles runner. Nothing of Microsoft's or Shapr3D's is in this repository or in what it builds. The Windows
-components come from Microsoft's own Windows 11 evaluation image, which the setup downloads on the user's machine,
-and Shapr3D comes from the `.msixbundle` the user chooses.
+The Windows version of Shapr3D on Linux, as one AppImage, built on [wine-uwp](https://github.com/designgears/wine-uwp).
+The AppImage carries Wine with our changes, wine-uwp's runtime and shims, and the setup app. Nothing of Microsoft's
+or Shapr3D's is in this repository or in the AppImage: the setup downloads Microsoft's own Windows 11 evaluation
+image on the user's machine and takes the Windows components from it, and Shapr3D comes from the `.msixbundle` the
+user chooses.
 
-The engine - our Wine source, `wineuwp`, the shims, and the runtime scripts (`harvest`, `new-prefix`, `install-app`,
-the `wine-uwp` command) - is in the wine-uwp repository. Every build here reads a wine-uwp checkout: `WINE_UWP`, by
-default `../wine-uwp` beside this one. Builds go to that checkout's `uwp-bin/` (its `UWP_BIN`), which is where
-flatpak-builder keeps its cache.
+wine-uwp is a submodule (`wine-uwp/`), pinned to the commit a release is built from. For development, every script
+here reads `WINE_UWP`, by default the `../wine-uwp` checkout beside this one; `release.sh` always uses the submodule.
 
 ## What the user sees
 
@@ -27,7 +26,7 @@ The installer (`installer/`, Rust + [Slint](https://slint.dev), styled after Sha
    Each step shows its state and progress (speed, time left), with the tools' output behind "Show details".
 4. **Package**: the user picks Shapr3D's `.msixbundle` in their desktop's own file dialog (the portal). The
    installer shows the app's icon, version, publisher and whether every framework it needs is present.
-5. **Installing**, then **ready**: Launch, and (outside the Flatpak) a menu entry plus the `shapr3d:` link handler,
+5. **Installing**, then **ready**: Launch, and a menu entry plus the `shapr3d:` link handler,
    which is how the browser sign-in comes back to the running app.
 
 `wine-uwp setup [--iso FILE] [PACKAGE]` pre-fills the choices; scripted tests use that instead of the dialog. Every
@@ -40,26 +39,31 @@ accent with dark text on it.
 ## Building
 
 ```
-(cd ../wine-uwp && ./build.sh)    # the shims and wineuwp-launch.exe (clang-cl, xwin SDK)
-./build-dist.sh OUT               # a host tree: wine-uwp's packaging/build-dist.sh plus the installer
-flatpak/build.sh --install        # Flatpak: Wine 11.17 + wine-uwp's wine/ and the installer, freedesktop 25.08 SDK
-appimage/build.sh                 # $UWP_BIN/appimage/wine-uwp-x86_64.AppImage from that Flatpak build
-bottles/make-runner.sh            # $UWP_BIN/bottles/wine-uwp-11.17.tar.xz from that Flatpak build
+./release.sh VERSION                # the release: checks, shims, AppImage, SHA256SUMS, smoke test, all in out/VERSION
+appimage/build.sh [OUTDIR]          # just an AppImage, from WINE_UWP (shims built first: wine-uwp's build.sh)
+./build-dist.sh OUT                 # a host tree for development: wine-uwp's packaging/build-dist.sh plus the installer
+appimage/smoke.sh APPIMAGE OUTDIR   # set an AppImage up from nothing on a private Xvfb and require Shapr3D's first screen
 ```
 
-The Flatpak build needs `org.flatpak.Builder`, `org.freedesktop.Sdk//25.08` and its `mingw-w64` and
-`rust-stable` extensions from Flathub (user installation). The installer's crates are fetched at build time, pinned
-by `Cargo.lock`. Wine comes from the upstream tarball with wine-uwp's `wine/` laid over it and `configure`
-regenerated.
+`release.sh` refuses uncommitted changes in either repository, a wine-uwp commit that is not on GitHub, and anything
+`check-clean.sh` rejects. It names the file `shapr3d-linux-VERSION-x86_64.AppImage` and embeds AppImageUpdate
+information pointing at this repository's GitHub releases, so `.zsync` delta updates work. The smoke test needs
+`SMOKE_PACKAGE` (a Shapr3D `.msixbundle`) and `SMOKE_ISO` (a Windows 11 ISO) or `SMOKE_WINDOWS` (an already harvested
+tree); `SMOKE=0` skips it.
 
-The shims are built on the host (they need the Windows SDK headers) and go in as files. The runner and the AppImage
-are both made from the Flatpak's `/app`, so they link against the freedesktop runtime rather than the host's newer
-glibc. That lets the runner work inside Bottles' sandbox, and the AppImage run on distributions with glibc 2.38 or
-newer. The AppImage (109 MB) bundles only what hosts do not reliably have: GnuTLS, libusb, Python's OpenSSL and the
-like. Wine's media modules use the host's GStreamer and ffmpeg, if present, and URLs go back to the host's browser
-with the host's own environment (`appimage/host-run`).
+The AppImage is built in two steps by `appimage/build.sh`. First Wine (the upstream 11.17 tarball with wine-uwp's
+`wine/` laid over it and `configure` regenerated), 7-Zip, the installer and wine-uwp's runtime are built with
+flatpak-builder in the freedesktop 25.08 SDK (`appimage/build-env.yml`). Nothing is exported or installed as a
+Flatpak; the SDK is only there so that everything links against that runtime's glibc (2.38) rather than the build
+machine's newer one. Then the result becomes the AppDir, with the runtime's Python and the few libraries hosts do not
+reliably have (GnuTLS, libusb, Python's OpenSSL). It runs on Ubuntu 24.04, Debian 13, Fedora 39 and newer, and is
+about 109 MB. Wine's media modules use the host's GStreamer and ffmpeg, if present, and links go back to the host's
+browser with the host's own environment (`appimage/host-run`).
 
-For Bottles, see wine-uwp's `packaging/README.md`.
+Build machine: `org.flatpak.Builder`, `org.freedesktop.Sdk//25.08` and its `mingw-w64` and `rust-stable` extensions
+from Flathub (user installation); clang-cl, lld-link and the [xwin](https://github.com/Jake-Shadle/xwin) SDK in
+`~/xwin` for the shims (build-time headers only, never shipped); Xvfb, xdotool and ImageMagick for the smoke test.
+The installer's crates are fetched at build time, pinned by `Cargo.lock`.
 
 ## Keeping Microsoft's and Shapr3D's files out
 

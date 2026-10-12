@@ -1,8 +1,10 @@
-# Flatpak of Shapr3D for Linux (wine-uwp set up for Shapr3D). Build it with flatpak/build.sh, which prepares .build/ first.
+# The build environment of the AppImage: Wine, 7-Zip, the installer and wine-uwp's runtime, built with flatpak-builder
+# in the freedesktop 25.08 SDK so that everything links against that runtime's glibc (2.38) rather than the build
+# machine's newer one. Nothing is exported or installed as a Flatpak; appimage/build.sh packs the result.
 #
 # Wine is built here from the upstream release tarball with our Wine source (wine/ in the wine-uwp repo, every file we
 # changed, in full) laid over it; configure is regenerated because configure.ac is one of those files. Nothing of
-# Microsoft's is in the Flatpak: the setup wizard downloads Windows components on the user's machine.
+# Microsoft's is in it: the setup downloads Windows components on the user's machine.
 app-id: io.github.wine_uwp.WineUWP
 # the plain freedesktop runtime: the installer draws its own UI (Slint), so no GNOME/GTK
 runtime: org.freedesktop.Platform
@@ -12,19 +14,6 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.mingw-w64
   - org.freedesktop.Sdk.Extension.rust-stable
 command: wine-uwp
-finish-args:
-  - --share=ipc
-  - --share=network
-  # Wine draws through X11 (run.sh pins the x11 driver); on Wayland desktops this is Xwayland
-  - --socket=x11
-  - --socket=pulseaudio
-  - --device=dri
-  # where Shapr3D's open/save dialogs start (the prefix's Documents/Desktop/Pictures/Downloads point here)
-  - --filesystem=xdg-documents
-  - --filesystem=xdg-download
-  - --filesystem=xdg-desktop
-  - --filesystem=xdg-pictures
-  - --env=WINEDEBUG=-all,err+all
 cleanup:
   - /include
   - /share/man
@@ -101,16 +90,7 @@ modules:
     build-commands:
       - cp -r share/wine-uwp /app/share/
       - install -Dm755 bin/wine-uwp /app/bin/wine-uwp
-      - install -Dm644 io.github.wine_uwp.WineUWP.desktop /app/share/applications/io.github.wine_uwp.WineUWP.desktop
-      - install -Dm644 io.github.wine_uwp.WineUWP.metainfo.xml /app/share/metainfo/io.github.wine_uwp.WineUWP.metainfo.xml
-      - install -Dm644 io.github.wine_uwp.WineUWP.svg /app/share/icons/hicolor/scalable/apps/io.github.wine_uwp.WineUWP.svg
     sources:
       # wine-uwp's packaging/build-dist.sh --no-wine: the scripts and our shim DLLs
       - type: dir
         path: .build/dist
-      - type: file
-        path: io.github.wine_uwp.WineUWP.desktop
-      - type: file
-        path: io.github.wine_uwp.WineUWP.metainfo.xml
-      - type: file
-        path: io.github.wine_uwp.WineUWP.svg
