@@ -425,7 +425,6 @@ fn main() {
         log_pushed: Instant::now(),
         retry_install: false,
     }));
-    ui.set_can_add_menu(std::env::var_os("FLATPAK_ID").is_none());
     ui.set_done_icon(slint::Image::load_from_svg_data(include_bytes!("../ui/icons/logo.svg")).unwrap_or_default());
     ui.set_package_icon(slint::Image::load_from_svg_data(include_bytes!("../ui/icons/logo.svg")).unwrap_or_default());
 
@@ -458,6 +457,8 @@ fn main() {
     let apps = installed_apps(&paths);
     if paths.windows_ready().exists() && paths.prefix_ready().exists() {
         if let Some(app) = apps.first() {
+            // refreshed on every start, so a moved AppImage gets its menu entry pointed at the new place
+            add_to_menu(&paths, app);
             show_done(&ui, &paths, app);
             state.lock().unwrap().installed = Some(app.clone());
         } else {
@@ -580,9 +581,6 @@ fn main() {
         ui.on_launch(move || {
             let ui = w.unwrap();
             let Some(app) = s.lock().unwrap().installed.clone() else { return };
-            if ui.get_can_add_menu() && ui.get_add_menu() {
-                let _ = write_desktop_entry(&p, &app);
-            }
             ui.set_launching(true);
             let _ = Command::new(p.launcher()).arg("run").arg(&app).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).process_group(0).spawn();
             let w = w.clone();
@@ -707,6 +705,7 @@ fn install(state: State, ui: Weak<Installer>, paths: Paths, package: PathBuf) {
         set_step(&ui, i, 2, Some(String::new()));
     }
     progress(&ui, 1.0, "Installed".into());
+    add_to_menu(&paths, &app);
     state.lock().unwrap().installed = Some(app.clone());
     std::thread::sleep(Duration::from_millis(500));
     let p = paths.clone();
@@ -720,6 +719,13 @@ fn show_done(ui: &Installer, paths: &Paths, app: &str) {
         ui.set_done_icon(img);
     }
     ui.set_page(PAGE_DONE);
+}
+
+/// Inside a Flatpak the Flatpak's own exported entry is the launcher.
+fn add_to_menu(paths: &Paths, app: &str) {
+    if std::env::var_os("FLATPAK_ID").is_none() {
+        let _ = write_desktop_entry(paths, app);
+    }
 }
 
 /// A menu entry for the app and a handler for its URI schemes (a browser sign-in comes back through one). Inside
@@ -742,7 +748,7 @@ fn write_desktop_entry(paths: &Paths, app: &str) -> std::io::Result<()> {
     let icon = if icon.exists() { icon.to_string_lossy().into_owned() } else { "application-x-executable".into() };
     fs::write(
         apps.join(format!("wine-uwp-{app}.desktop")),
-        format!("[Desktop Entry]\nType=Application\nName={title}\nComment=Runs with wine-uwp\nExec={launcher} run {app}\nIcon={icon}\nCategories=Graphics;Engineering;\nStartupWMClass={}.exe\n", title.to_lowercase()),
+        format!("[Desktop Entry]\nType=Application\nName={title}\nExec={launcher} run {app}\nIcon={icon}\nCategories=Graphics;Engineering;\nStartupWMClass={}.exe\n", title.to_lowercase()),
     )?;
     let schemes: Vec<String> = fs::read_to_string(stage.join(".wine-uwp-protocols")).unwrap_or_default().lines().filter(|l| !l.is_empty()).map(String::from).collect();
     let host = |args: &[&str]| {

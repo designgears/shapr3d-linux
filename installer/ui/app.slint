@@ -463,8 +463,6 @@ export component Installer inherits Window {
 
     // done / error
     in property <image> done-icon;
-    in property <bool> can-add-menu: true;
-    in-out property <bool> add-menu: true;
     in property <bool> launching: false;
     in property <string> error-title;
     in property <string> error-text;
@@ -777,30 +775,6 @@ export component Installer inherits Window {
                             font-size: 26px;
                             font-weight: 700;
                             horizontal-alignment: center;
-                        }
-                        Rectangle { height: 26px; }
-                        if root.can-add-menu: HorizontalLayout {
-                            alignment: center;
-                            Rectangle {
-                                width: 420px;
-                                height: 56px;
-                                border-radius: Theme.radius;
-                                background: Theme.panel;
-                                border-width: 1px;
-                                border-color: Theme.border;
-                                HorizontalLayout {
-                                    padding-left: 16px;
-                                    padding-right: 16px;
-                                    VerticalLayout {
-                                        alignment: center;
-                                        Text { text: "Add to the applications menu"; color: Theme.text; font-size: 14px; }
-                                    }
-                                    Toggle {
-                                        y: (parent.height - self.height) / 2;
-                                        checked <=> root.add-menu;
-                                    }
-                                }
-                            }
                         }
                         Rectangle { vertical-stretch: 1; }
                     }
