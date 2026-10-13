@@ -471,6 +471,7 @@ export component Installer inherits Window {
     in-out property <string> notice;
     in property <bool> app-running: false;
     in property <bool> closing: false;
+    in property <bool> update-after-close: false;
     in property <string> error-title;
     in property <string> error-text;
 
@@ -817,7 +818,7 @@ export component Installer inherits Window {
                             alignment: center;
                             SecondaryButton {
                                 width: 260px;
-                                text: root.closing ? "Closing…" : "Close " + root.app-name + " and update";
+                                text: root.closing ? "Closing…" : "Close " + root.app-name + (root.update-after-close ? " and update" : "");
                                 enabled: !root.closing;
                                 danger: true;
                                 clicked => { root.close-app(); }

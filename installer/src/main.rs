@@ -594,6 +594,13 @@ fn main() {
         ui.on_launch(move || {
             let ui = w.unwrap();
             let Some(app) = s.lock().unwrap().installed.clone() else { return };
+            // `run` exits quietly when the app holds its run lock already; say so rather than close on nothing
+            if app_running(&p, &app) {
+                ui.set_notice(format!("{} is already running.", app_title(&p, &app)).into());
+                ui.set_update_after_close(false);
+                ui.set_app_running(true);
+                return;
+            }
             ui.set_launching(true);
             let _ = Command::new(p.launcher()).arg("run").arg(&app).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).process_group(0).spawn();
             let w = w.clone();
@@ -611,6 +618,7 @@ fn main() {
             let Some(app) = s.lock().unwrap().installed.clone() else { return };
             if app_running(&p, &app) {
                 ui.set_notice(format!("Close {} before updating.", app_title(&p, &app)).into());
+                ui.set_update_after_close(true);
                 ui.set_app_running(true);
                 return;
             }
@@ -653,7 +661,9 @@ fn main() {
                     } else {
                         ui.set_app_running(false);
                         ui.set_notice("".into());
-                        ui.invoke_update();
+                        if ui.get_update_after_close() {
+                            ui.invoke_update();
+                        }
                     }
                 });
             });
