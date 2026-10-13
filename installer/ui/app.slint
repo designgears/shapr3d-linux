@@ -469,6 +469,8 @@ export component Installer inherits Window {
     in property <string> update-uri;
     in-out property <bool> updating: false;
     in-out property <string> notice;
+    in property <bool> app-running: false;
+    in property <bool> closing: false;
     in property <string> error-title;
     in property <string> error-text;
 
@@ -480,6 +482,7 @@ export component Installer inherits Window {
     callback install();
     callback launch();
     callback update();
+    callback close-app();
     callback retry();
     callback close-window();
     callback open-url(string);
@@ -808,6 +811,17 @@ export component Installer inherits Window {
                             color: Theme.danger;
                             font-size: 13px;
                             horizontal-alignment: center;
+                        }
+                        if root.app-running: Rectangle { height: 12px; }
+                        if root.app-running: HorizontalLayout {
+                            alignment: center;
+                            SecondaryButton {
+                                width: 260px;
+                                text: root.closing ? "Closing…" : "Close " + root.app-name + " and update";
+                                enabled: !root.closing;
+                                danger: true;
+                                clicked => { root.close-app(); }
+                            }
                         }
                         Rectangle { vertical-stretch: 1; }
                     }

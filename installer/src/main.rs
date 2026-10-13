@@ -611,8 +611,10 @@ fn main() {
             let Some(app) = s.lock().unwrap().installed.clone() else { return };
             if app_running(&p, &app) {
                 ui.set_notice(format!("Close {} before updating.", app_title(&p, &app)).into());
+                ui.set_app_running(true);
                 return;
             }
+            ui.set_app_running(false);
             ui.set_has_package(false);
             ui.set_package_error("".into());
             ui.set_updating(true);
@@ -629,6 +631,31 @@ fn main() {
             std::thread::spawn(move || match package_info(&p, &f) {
                 Ok(info) => on_ui(&w, move |ui| apply_package(ui, info)),
                 Err(e) => on_ui(&w, move |ui| ui.set_package_error(e.into())),
+            });
+        });
+    }
+    {
+        let (w, s, p) = (ui.as_weak(), state.clone(), paths.clone());
+        ui.on_close_app(move || {
+            let ui = w.unwrap();
+            let Some(app) = s.lock().unwrap().installed.clone() else { return };
+            ui.set_closing(true);
+            // `wine-uwp stop` asks the running app to close through its data directory and waits for it
+            let (w, p) = (w.clone(), p.clone());
+            std::thread::spawn(move || {
+                let _ = Command::new(p.launcher()).arg("stop").arg(&app).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).status();
+                let still = app_running(&p, &app);
+                let title = app_title(&p, &app);
+                on_ui(&w, move |ui| {
+                    ui.set_closing(false);
+                    if still {
+                        ui.set_notice(format!("{title} did not close.").into());
+                    } else {
+                        ui.set_app_running(false);
+                        ui.set_notice("".into());
+                        ui.invoke_update();
+                    }
+                });
             });
         });
     }
