@@ -137,6 +137,8 @@ fn installed_apps(paths: &Paths) -> Vec<String> {
         .map(|rd| {
             rd.filter_map(|e| e.ok())
                 .filter(|e| e.path().join("identity.env").is_file())
+                // APP.new and APP.old are an update in progress
+                .filter(|e| !e.file_name().to_string_lossy().ends_with(".new") && !e.file_name().to_string_lossy().ends_with(".old"))
                 .map(|e| e.file_name().to_string_lossy().into_owned())
                 .collect()
         })
@@ -461,6 +463,11 @@ fn main() {
             add_to_menu(&paths, app);
             show_done(&ui, &paths, app);
             state.lock().unwrap().installed = Some(app.clone());
+            // a package passed to an installed setup is an update
+            if state.lock().unwrap().package.is_some() {
+                ui.set_updating(true);
+                ui.set_page(PAGE_PACKAGE);
+            }
         } else {
             ui.set_page(PAGE_PACKAGE);
         }
@@ -592,6 +599,22 @@ fn main() {
         });
     }
     {
+        let (w, s, p) = (ui.as_weak(), state.clone(), paths.clone());
+        ui.on_update(move || {
+            let ui = w.unwrap();
+            let Some(app) = s.lock().unwrap().installed.clone() else { return };
+            if app_running(&p, &app) {
+                ui.set_notice(format!("Close {} before updating.", app_title(&p, &app)).into());
+                return;
+            }
+            s.lock().unwrap().package = None;
+            ui.set_has_package(false);
+            ui.set_package_error("".into());
+            ui.set_updating(true);
+            ui.set_page(PAGE_PACKAGE);
+        });
+    }
+    {
         let w = ui.as_weak();
         ui.on_close_window(move || {
             let _ = w.unwrap().hide();
@@ -677,6 +700,10 @@ fn apply_package(ui: &Installer, info: PackageInfo) {
 }
 
 fn install(state: State, ui: Weak<Installer>, paths: Paths, package: PathBuf) {
+    if let Some(app) = state.lock().unwrap().installed.clone().filter(|a| app_running(&paths, a)) {
+        let title = app_title(&paths, &app);
+        return fail(&state, &ui, "The app is running", format!("Close {title}, then try again."), true);
+    }
     set_step(&ui, 0, 1, None);
     let mut installed = None;
     let u = ui.clone();
@@ -712,7 +739,29 @@ fn install(state: State, ui: Weak<Installer>, paths: Paths, package: PathBuf) {
     on_ui(&ui, move |ui| show_done(ui, &p, &app));
 }
 
+/// The installed package's version, from the full name install-app.py wrote (NAME_VERSION_ARCH_RES_PUBLISHER).
+fn installed_version(paths: &Paths, app: &str) -> String {
+    fs::read_to_string(paths.data.join("stage").join(app).join("identity.env"))
+        .unwrap_or_default()
+        .lines()
+        .find_map(|l| l.strip_prefix("export WINE_UWP_PACKAGE_FULL_NAME="))
+        .and_then(|f| f.split('_').nth(1).map(String::from))
+        .unwrap_or_default()
+}
+
+/// Is the app running? `wine-uwp run` holds a lock on logs/.APP.running for as long as it lives.
+fn app_running(paths: &Paths, app: &str) -> bool {
+    use std::os::fd::AsRawFd;
+    let Ok(f) = fs::OpenOptions::new().create(true).write(true).open(paths.data.join("logs").join(format!(".{app}.running"))) else {
+        return false;
+    };
+    unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) != 0 }
+}
+
 fn show_done(ui: &Installer, paths: &Paths, app: &str) {
+    ui.set_installed_version(installed_version(paths, app).into());
+    ui.set_updating(false);
+    ui.set_notice("".into());
     ui.set_app_name(app_title(paths, app).into());
     let icon = paths.data.join("stage").join(app).join(".wine-uwp-icon.png");
     if let Ok(img) = slint::Image::load_from_path(&icon) {

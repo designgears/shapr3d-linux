@@ -464,6 +464,9 @@ export component Installer inherits Window {
     // done / error
     in property <image> done-icon;
     in property <bool> launching: false;
+    in property <string> installed-version;
+    in-out property <bool> updating: false;
+    in-out property <string> notice;
     in property <string> error-title;
     in property <string> error-text;
 
@@ -474,6 +477,7 @@ export component Installer inherits Window {
     callback choose-package();
     callback install();
     callback launch();
+    callback update();
     callback retry();
     callback close-window();
     callback open-url(string);
@@ -669,7 +673,12 @@ export component Installer inherits Window {
 
                     if root.page == 3: Page {
                         PageTitle {
-                            title: "Choose the " + root.app-name + " package";
+                            title: root.updating ? "Update " + root.app-name : "Choose the " + root.app-name + " package";
+                        }
+                        if root.updating: Text {
+                            text: "Installed: version " + root.installed-version;
+                            color: Theme.text-2;
+                            font-size: 13px;
                         }
                         Rectangle { height: 24px; }
                         if !root.has-package: Rectangle {
@@ -776,6 +785,20 @@ export component Installer inherits Window {
                             font-weight: 700;
                             horizontal-alignment: center;
                         }
+                        Rectangle { height: 8px; }
+                        if root.installed-version != "": Text {
+                            text: "Version " + root.installed-version;
+                            color: Theme.text-2;
+                            font-size: 14px;
+                            horizontal-alignment: center;
+                        }
+                        Rectangle { height: 16px; }
+                        if root.notice != "": Text {
+                            text: root.notice;
+                            color: Theme.danger;
+                            font-size: 13px;
+                            horizontal-alignment: center;
+                        }
                         Rectangle { vertical-stretch: 1; }
                     }
 
@@ -813,12 +836,16 @@ export component Installer inherits Window {
                     Rectangle { }
                     if root.page == 1 || root.page == 3: SecondaryButton {
                         text: "Back";
-                        clicked => { root.page = root.page == 1 ? 0 : 1; }
+                        clicked => { root.page = root.page == 1 ? 0 : root.updating ? 5 : 1; }
                     }
                     if root.page == 2 || root.page == 4: SecondaryButton {
                         text: "Cancel";
                         danger: true;
                         clicked => { root.cancel(); }
+                    }
+                    if root.page == 5: SecondaryButton {
+                        text: "Update…";
+                        clicked => { root.update(); }
                     }
                     if root.page == 5 || root.page == 6: SecondaryButton {
                         text: "Close";
@@ -836,7 +863,7 @@ export component Installer inherits Window {
                         clicked => { root.prepare(); }
                     }
                     if root.page == 3: PrimaryButton {
-                        text: "Install";
+                        text: root.updating ? "Update" : "Install";
                         enabled: root.has-package && root.package-ok;
                         clicked => { root.install(); }
                     }
