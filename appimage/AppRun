@@ -6,9 +6,20 @@
 # usr/bin/host-run restores them.
 here=$(dirname "$(readlink -f "$0")")
 export APPDIR=${APPDIR:-$here}
-for v in LD_LIBRARY_PATH PYTHONHOME PYTHONPATH PATH SSL_CERT_FILE; do
-  if [ -n "${!v+x}" ]; then export "WINE_UWP_HOST_$v=${!v}"; else export "WINE_UWP_HOST_$v=__unset__"; fi
-done
+# Started from inside an AppImage already (the launcher starts the app as "$APPIMAGE run"), the environment is that
+# AppImage's, and its mount goes away when it exits: keep the host values it saved, or a browser opened from the app
+# would get the bundled libraries of a dead mount and never start.
+if [ -z "${WINE_UWP_HOST_PATH+x}" ]; then
+  for v in LD_LIBRARY_PATH PYTHONHOME PYTHONPATH PATH SSL_CERT_FILE; do
+    if [ -n "${!v+x}" ]; then export "WINE_UWP_HOST_$v=${!v}"; else export "WINE_UWP_HOST_$v=__unset__"; fi
+  done
+else
+  # rebuild from the host's values, dropping the outer AppImage's entries
+  for v in LD_LIBRARY_PATH PYTHONHOME PYTHONPATH PATH SSL_CERT_FILE; do
+    saved=WINE_UWP_HOST_$v
+    if [ "${!saved}" = __unset__ ]; then unset "$v"; else export "$v=${!saved}"; fi
+  done
+fi
 export LD_LIBRARY_PATH=$APPDIR/usr/lib/bundled${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 export PYTHONHOME=$APPDIR/usr
 unset PYTHONPATH
