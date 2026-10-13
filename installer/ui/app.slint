@@ -465,6 +465,8 @@ export component Installer inherits Window {
     in property <image> done-icon;
     in property <bool> launching: false;
     in property <string> installed-version;
+    in property <string> update-version;
+    in property <string> update-uri;
     in-out property <bool> updating: false;
     in-out property <string> notice;
     in property <string> error-title;
@@ -696,11 +698,19 @@ export component Installer inherits Window {
                                     alignment: center;
                                     Icon { source: @image-url("icons/cube.svg"); width: 34px; height: 34px; tint: Theme.accent; }
                                 }
-                                Text { text: "Choose package…"; color: Theme.text; font-size: 15px; font-weight: 600; horizontal-alignment: center; }
+                                Text { text: "Choose Shapr3D.Package.appinstaller…"; color: Theme.text; font-size: 15px; font-weight: 600; horizontal-alignment: center; }
                             }
                             drop-touch := TouchArea {
                                 mouse-cursor: pointer;
                                 clicked => { root.choose-package(); }
+                            }
+                        }
+                        if !root.has-package: Rectangle { height: 14px; }
+                        if !root.has-package: HorizontalLayout {
+                            alignment: center;
+                            LinkText {
+                                text: "Download it from shapr3d.com";
+                                clicked => { root.open-url("https://www.shapr3d.com/download/get-started-with-shapr3d/windows"); }
                             }
                         }
                         if root.has-package: Rectangle {
@@ -787,7 +797,7 @@ export component Installer inherits Window {
                         }
                         Rectangle { height: 8px; }
                         if root.installed-version != "": Text {
-                            text: "Version " + root.installed-version;
+                            text: "Version " + root.installed-version + (root.update-version != "" ? "  ·  " + root.update-version + " is available" : "");
                             color: Theme.text-2;
                             font-size: 14px;
                             horizontal-alignment: center;
@@ -844,7 +854,7 @@ export component Installer inherits Window {
                         clicked => { root.cancel(); }
                     }
                     if root.page == 5: SecondaryButton {
-                        text: "Update…";
+                        text: root.update-version != "" ? "Update to " + root.update-version : "Update…";
                         clicked => { root.update(); }
                     }
                     if root.page == 5 || root.page == 6: SecondaryButton {

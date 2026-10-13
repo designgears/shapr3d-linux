@@ -462,6 +462,7 @@ fn main() {
             // refreshed on every start, so a moved AppImage gets its menu entry pointed at the new place
             add_to_menu(&paths, app);
             show_done(&ui, &paths, app);
+            check_for_update(ui.as_weak(), paths.clone(), app.clone());
             state.lock().unwrap().installed = Some(app.clone());
             // a package passed to an installed setup is an update
             if state.lock().unwrap().package.is_some() {
@@ -524,7 +525,7 @@ fn main() {
             std::thread::spawn(move || {
                 let Some(f) = rfd::FileDialog::new()
                     .set_title("Choose the Shapr3D package")
-                    .add_filter("App packages", &["msixbundle", "msix", "appxbundle", "appx"])
+                    .add_filter("App packages", &["appinstaller", "msixbundle", "msix", "appxbundle", "appx"])
                     .pick_file()
                 else {
                     return;
@@ -547,7 +548,12 @@ fn main() {
         let (w, s, p) = (ui.as_weak(), state.clone(), paths.clone());
         ui.on_install(move || {
             let ui = w.unwrap();
-            let steps: Vec<Step> = ["Read the package", "Unpack the app", "Install frameworks"].iter().map(|t| step(t)).collect();
+            let remote = s.lock().unwrap().package.as_ref().is_some_and(|p| {
+                let p = p.to_string_lossy().to_lowercase();
+                p.starts_with("http") || p.ends_with(".appinstaller")
+            });
+            let unpack = if remote { "Download and unpack the app" } else { "Unpack the app" };
+            let steps: Vec<Step> = ["Read the package", unpack, "Install frameworks"].iter().map(|t| step(t)).collect();
             ui.set_steps(ModelRc::new(VecModel::from(steps)));
             ui.set_progress(0.0);
             ui.set_progress_text("".into());
@@ -607,11 +613,23 @@ fn main() {
                 ui.set_notice(format!("Close {} before updating.", app_title(&p, &app)).into());
                 return;
             }
-            s.lock().unwrap().package = None;
             ui.set_has_package(false);
             ui.set_package_error("".into());
             ui.set_updating(true);
             ui.set_page(PAGE_PACKAGE);
+            // the vendor's newer version, when the check found one: read it straight from the server
+            let uri = ui.get_update_uri().to_string();
+            if uri.is_empty() || ui.get_update_version().is_empty() {
+                s.lock().unwrap().package = None;
+                return;
+            }
+            let f = PathBuf::from(uri);
+            s.lock().unwrap().package = Some(f.clone());
+            let (w, p) = (w.clone(), p.clone());
+            std::thread::spawn(move || match package_info(&p, &f) {
+                Ok(info) => on_ui(&w, move |ui| apply_package(ui, info)),
+                Err(e) => on_ui(&w, move |ui| ui.set_package_error(e.into())),
+            });
         });
     }
     {
@@ -647,6 +665,7 @@ fn package_info(paths: &Paths, package: &Path) -> Result<PackageInfo, String> {
     let out = Command::new(&paths.py)
         .arg(paths.tool("install-app.py"))
         .arg(package)
+        .arg(&paths.data)
         .args(["--info", "--icon"])
         .arg(&icon)
         .arg("--windows")
@@ -664,7 +683,12 @@ fn package_info(paths: &Paths, package: &Path) -> Result<PackageInfo, String> {
         .as_array()
         .map(|a| {
             a.iter()
-                .map(|f| (f["name"].as_str().unwrap_or("").to_string(), format!("{} or later", f["min_version"].as_str().unwrap_or("")), f["available"].as_bool().unwrap_or(false)))
+                .map(|f| {
+                    let have = f["available"].as_bool().unwrap_or(false);
+                    let older = !have && f["older"].as_bool().unwrap_or(false);
+                    let v = format!("{} or later{}", f["min_version"].as_str().unwrap_or(""), if older { " · using the older one from Windows" } else { "" });
+                    (f["name"].as_str().unwrap_or("").to_string(), v, have || older)
+                })
                 .collect()
         })
         .unwrap_or_default();
@@ -758,8 +782,31 @@ fn app_running(paths: &Paths, app: &str) -> bool {
     unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) != 0 }
 }
 
+fn version_key(v: &str) -> Vec<u64> {
+    v.split('.').map(|x| x.parse().unwrap_or(0)).collect()
+}
+
+/// An app installed from a vendor's .appinstaller remembers its URI; ask it for the version on offer and, when that
+/// is newer, offer it on the launcher page.
+fn check_for_update(ui: Weak<Installer>, paths: Paths, app: String) {
+    let Ok(uri) = fs::read_to_string(paths.data.join("stage").join(&app).join(".wine-uwp-appinstaller")) else { return };
+    let uri = uri.trim().to_string();
+    std::thread::spawn(move || {
+        let Ok(out) = Command::new(&paths.py).arg(paths.tool("install-app.py")).arg(&uri).arg("--latest").output() else { return };
+        let latest = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if !out.status.success() || latest.is_empty() || version_key(&latest) <= version_key(&installed_version(&paths, &app)) {
+            return;
+        }
+        on_ui(&ui, move |ui| {
+            ui.set_update_uri(uri.into());
+            ui.set_update_version(latest.into());
+        });
+    });
+}
+
 fn show_done(ui: &Installer, paths: &Paths, app: &str) {
     ui.set_installed_version(installed_version(paths, app).into());
+    ui.set_update_version("".into());
     ui.set_updating(false);
     ui.set_notice("".into());
     ui.set_app_name(app_title(paths, app).into());

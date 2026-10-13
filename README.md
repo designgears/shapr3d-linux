@@ -23,7 +23,8 @@
 - 64-bit Linux with glibc 2.38 or newer: Ubuntu 24.04, Debian 13, Fedora 39 or anything more recent
 - A GPU with working **Vulkan** drivers
 - About **11 GB** of free disk space during setup, 4 GB afterwards
-- A Shapr3D account, and the **Shapr3D for Windows** installer (`.msixbundle`)
+- A Shapr3D account, and the **Shapr3D for Windows** download: `Shapr3D.Package.appinstaller` from
+  [shapr3d.com](https://www.shapr3d.com/download/get-started-with-shapr3d/windows) (a small file; the setup fetches Shapr3D itself)
 
 ## Getting started
 
@@ -44,7 +45,9 @@
    - **Windows components:** Shapr3D needs parts of Windows that Linux doesn't have. The setup downloads
      Microsoft's free Windows 11 evaluation image (7.1 GB) straight from Microsoft, takes out the few
      thousand files it needs, and deletes the image. You can also point it at a Windows 11 ISO you already have.
-   - **Shapr3D:** choose the Shapr3D for Windows `.msixbundle` you downloaded.
+   - **Shapr3D:** choose the `Shapr3D.Package.appinstaller` you downloaded from
+     [shapr3d.com](https://www.shapr3d.com/download/get-started-with-shapr3d/windows). The setup downloads Shapr3D
+     from Shapr3D's server straight into place (about 1.8 GB). A `.msixbundle` works too.
 4. **Launch Shapr3D** and sign in. Your browser opens to log in; when it asks to open Shapr3D, allow it, and
    you are signed in.
 
@@ -52,8 +55,9 @@
   <img src="docs/screenshots/installer/1-welcome.png" alt="The setup" width="640">
 </p>
 
-After the first run, the same AppImage or app starts Shapr3D directly. The AppImage's setup can add Shapr3D to your
-applications menu, which is also what lets the browser hand the sign-in back; the Flatpak does that by itself.
+The setup adds **Shapr3D** to your applications menu, which starts it directly and is also what lets the browser
+hand the sign-in back. Opening the AppImage again (or *Setup* on the Flatpak's menu entry) shows the launcher:
+Launch, and Update.
 
 ## Good to know
 
@@ -61,7 +65,10 @@ applications menu, which is also what lets the browser hand the sign-in back; th
   `~/.var/app/io.github.designgears.Shapr3DLinux`.
 - **Your files:** Shapr3D's open and save dialogs start in your Documents folder. Its own projects sync to
   your Shapr3D cloud account as usual.
-- **Updates:** the AppImage carries update information, so
+- **Updating Shapr3D:** the launcher checks Shapr3D's server and offers **Update to** the new version when there
+  is one: one click, and your sign-in and projects stay. **Update…** also takes a newer `.appinstaller` or
+  `.msixbundle` by hand. Close Shapr3D first.
+- **Updating Shapr3D for Linux:** the AppImage carries update information, so
   [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) and AppImage managers such as Gear Lever
   can update it in place. For the Flatpak, install the new release's file with `flatpak install --user --reinstall`.
 - **Nothing of Microsoft's or Shapr3D's is in the download.** The AppImage and the Flatpak hold only open-source code; the
@@ -89,8 +96,7 @@ list your GPU. After a kernel or graphics driver update, reboot before trying ag
 a driver extension matching your installed NVIDIA driver version.
 
 **Signing in opens a second Shapr3D window, or nothing happens.** The browser hands the sign-in back through a
-`shapr3d:` link. With the AppImage, run the setup again (`./shapr3d-linux-*.AppImage setup`) and leave *Add to the
-applications menu* on. Use only one of the AppImage and the Flatpak: whichever registered last receives
+`shapr3d:` link. With the AppImage, open it again: that re-registers the menu entry and the link handler. Use only one of the AppImage and the Flatpak: whichever registered last receives
 `shapr3d:` links (`xdg-mime query default x-scheme-handler/shapr3d` names it).
 
 **The setup stopped halfway.** Start it again; it resumes where it stopped, including a partial download.
@@ -122,7 +128,7 @@ checksums, and smoke-tests both: an empty setup on a private X display must reac
   runs on older distributions (glibc 2.38).
 - clang-cl, lld-link and the Windows SDK headers from [xwin](https://github.com/Jake-Shadle/xwin) in `~/xwin`,
   for wine-uwp's helper DLLs. They are only used to build, never shipped.
-- For the smoke test: Xvfb, xdotool, ImageMagick, and `SMOKE_PACKAGE` (a Shapr3D `.msixbundle`) plus
+- For the smoke test: Xvfb, xdotool, ImageMagick, and `SMOKE_PACKAGE` (a Shapr3D `.appinstaller` or `.msixbundle`) plus
   `SMOKE_ISO` (a Windows 11 ISO) or `SMOKE_WINDOWS` (an already extracted tree). `SMOKE=0` skips it.
 
 | | |

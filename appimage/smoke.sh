@@ -8,14 +8,14 @@
 #
 #   SMOKE_ISO       a Windows 11 ISO to harvest (what the installer downloads), or
 #   SMOKE_WINDOWS   an already harvested tree, copied in instead - quicker, but skips the harvest
-#   SMOKE_PACKAGE   the Shapr3D .msixbundle to install
+#   SMOKE_PACKAGE   the Shapr3D .appinstaller or .msixbundle to install
 #
 # Passes when Shapr3D's window shows real UI (its first screen, sign-in on a fresh install) and stays up. Writes
 # OUTDIR/smoke.png and OUTDIR/smoke.log (SMOKE_TAG renames them). The data directory is deleted afterwards.
 set -euo pipefail
 mode=appimage; [ "$1" = --flatpak ] && { mode=flatpak; shift; }
 img=$(realpath "$1"); out=$(realpath -m "$2"); mkdir -p "$out"
-: "${SMOKE_PACKAGE:?set SMOKE_PACKAGE to a Shapr3D .msixbundle}"
+: "${SMOKE_PACKAGE:?set SMOKE_PACKAGE to a Shapr3D .appinstaller or .msixbundle}"
 [ -n "${SMOKE_ISO:-}" ] || [ -n "${SMOKE_WINDOWS:-}" ] || { echo "set SMOKE_ISO or SMOKE_WINDOWS" >&2; exit 2; }
 data=$(mktemp -d "${TMPDIR:-/tmp}/shapr3d-smoke.XXXXXX")
 disp=:${SMOKE_DISPLAY:-91}
