@@ -20,6 +20,34 @@ else
     if [ "${!saved}" = __unset__ ]; then unset "$v"; else export "$v=${!saved}"; fi
   done
 fi
+# the loader every bundled executable names (appimage/bundle_glibc.sh): ours on a host with an older glibc, the
+# host's own otherwise. The directory is shared by every user and every copy of this build, and it holds the same
+# thing for all of them on one machine, so whoever comes first makes it; it is rebuilt if the host's glibc changed.
+glibc_dir() {
+  local src=$APPDIR/usr/lib/glibc ver id want host dir tmp
+  ver=$(cat "$src/VERSION") id=$(cat "$src/ID")
+  dir=/tmp/.wine-uwp-glibc-$id
+  host=$(getconf GNU_LIBC_VERSION 2>/dev/null | sed -n 's/^glibc //p')
+  if [ -n "$host" ] && [ "$(printf '%s\n%s\n' "$ver" "$host" | sort -V | head -1)" = "$ver" ]; then
+    want=host
+  else
+    want=bundled
+  fi
+  [ "$(cat "$dir/MODE" 2>/dev/null)" = "$want" ] && [ -e "$dir/ld-linux-x86-64.so.2" ] && return 0
+  tmp=$(mktemp -d /tmp/.wine-uwp-glibc-new.XXXXXX) || return 1
+  if [ $want = host ]; then
+    ln -s /lib64/ld-linux-x86-64.so.2 "$tmp/ld-linux-x86-64.so.2"
+  else
+    cp "$src"/*.so* "$tmp"/
+  fi
+  echo $want > "$tmp/MODE"
+  chmod 755 "$tmp"
+  rm -rf "$dir" 2>/dev/null
+  mv -T "$tmp" "$dir" 2>/dev/null || rm -rf "$tmp"
+  [ "$(cat "$dir/MODE" 2>/dev/null)" = "$want" ] ||
+    { echo "wine-uwp: cannot set up $dir (it belongs to another user?)" >&2; return 1; }
+}
+[ -d "$APPDIR/usr/lib/glibc" ] && { glibc_dir || exit 1; }
 export LD_LIBRARY_PATH=$APPDIR/usr/lib/bundled${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
 export PYTHONHOME=$APPDIR/usr
 unset PYTHONPATH

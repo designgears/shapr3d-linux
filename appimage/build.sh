@@ -5,8 +5,8 @@
 #
 # The SDK build is Wine, 7-Zip, the installer and wine-uwp's runtime, linked against the freedesktop runtime; the
 # AppImage adds that runtime's Python (the setup tools need only its standard library) and the libraries hosts do not
-# reliably have (bundle_libs.py). Everything bundled needs at most GLIBC_2.38, so the AppImage runs on Ubuntu 24.04,
-# Debian 13, Fedora 39 and newer. The host provides glibc, its GPU drivers (GL, Vulkan), X11/Wayland,
+# reliably have (bundle_libs.py), and the runtime's glibc for hosts older than it (bundle_glibc.sh), so the AppImage
+# does not depend on the host's glibc version. The host provides its GPU drivers (GL, Vulkan), X11/Wayland,
 # fontconfig/freetype, audio and D-Bus.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
@@ -44,6 +44,13 @@ while IFS= read -r f; do elves+=("$f"); done < <(find "$app/usr/lib/wine/x86_64-
                                                    -name '*.so' ! -name winegstreamer.so ! -name winedmo.so)
 python3 "$here/bundle_libs.py" "$rt/lib/x86_64-linux-gnu" "$app/usr/lib/bundled" \
   --also libgnutls.so.30 --also libusb-1.0.so.0 "${elves[@]}"
+
+echo "STAGE Bundling glibc"
+patchelf=$UWP_BIN/tools/patchelf
+[ -x "$patchelf" ] || { mkdir -p "$(dirname "$patchelf")"
+  curl -sfL https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-x86_64.tar.gz |
+    tar -xzO ./bin/patchelf > "$patchelf.tmp" && chmod +x "$patchelf.tmp" && mv "$patchelf.tmp" "$patchelf"; }
+PATCHELF=$patchelf "$here/bundle_glibc.sh" "$app" "$rt/lib/x86_64-linux-gnu"
 
 echo "STAGE Desktop integration"
 install -m755 "$here/AppRun" "$app/AppRun"
