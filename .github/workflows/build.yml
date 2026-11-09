@@ -62,8 +62,11 @@ jobs:
           sudo apt-get update -q
           # Microsoft's current STL headers (xwin) refuse clang older than 19; Ubuntu 24.04's default is 18
           sudo apt-get install -yq --no-install-recommends flatpak clang-19 lld-19 llvm-19 cmake ninja-build patchelf
-          # clang-cl, lld-link, llvm-rc and llvm-mt are in LLVM's own bin directory
-          echo /usr/lib/llvm-19/bin >> "$GITHUB_PATH"
+          # clang and lld take their mode from the name they run as; Ubuntu's packages do not make clang-cl or lld-link
+          bin=$RUNNER_TEMP/llvm-bin; mkdir -p "$bin"; l=/usr/lib/llvm-19/bin
+          ln -sf "$l/clang" "$bin/clang-cl"; ln -sf "$l/lld" "$bin/lld-link"
+          echo "$bin" >> "$GITHUB_PATH"; echo "$l" >> "$GITHUB_PATH"
+          "$bin/clang-cl" --version | head -1; "$bin/lld-link" --version; ls "$l"/llvm-rc "$l"/llvm-mt
           # Ubuntu 24.04 blocks the unprivileged user namespaces bubblewrap (flatpak-builder) needs
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
