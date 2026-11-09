@@ -93,6 +93,11 @@ struct Shared {
 
 type State = Arc<Mutex<Shared>>;
 
+/// whole percent of a PROGRESS line's done/total (the tools report bytes or files, not percent)
+fn percent(done: f64, total: f64) -> u32 {
+    (done / total.max(1.0) * 100.0).clamp(0.0, 100.0) as u32
+}
+
 fn human_bytes(n: f64) -> String {
     if n >= 1e9 {
         format!("{:.1} GB", n / 1e9)
@@ -340,7 +345,7 @@ fn prepare(state: State, ui: Weak<Installer>, paths: Paths, use_download: bool, 
             if let Some(p) = l.strip_prefix("PROGRESS ") {
                 let v: Vec<f64> = p.split_whitespace().filter_map(|x| x.parse().ok()).collect();
                 if v.len() == 2 {
-                    progress(&u, (v[0] / v[1].max(1.0)) as f32, format!("Extracting… {} %", v[0]));
+                    progress(&u, (v[0] / v[1].max(1.0)) as f32, format!("Extracting… {} %", percent(v[0], v[1])));
                 }
             } else if let Some(s) = l.strip_prefix("STAGE ") {
                 set_step(&u, 2, 1, Some(s.to_string()));
@@ -775,7 +780,7 @@ fn install(state: State, ui: Weak<Installer>, paths: Paths, package: PathBuf) {
         } else if let Some(p) = l.strip_prefix("PROGRESS ") {
             let v: Vec<f64> = p.split_whitespace().filter_map(|x| x.parse().ok()).collect();
             if v.len() == 2 {
-                progress(&u, (v[0] / v[1].max(1.0)) as f32, format!("{} %", v[0]));
+                progress(&u, (v[0] / v[1].max(1.0)) as f32, format!("{} %", percent(v[0], v[1])));
             }
         } else if l.starts_with("STAGE Installing frameworks") {
             set_step(&u, 1, 2, None);
