@@ -60,9 +60,10 @@ jobs:
       - name: Host packages
         run: |
           sudo apt-get update -q
-          sudo apt-get install -yq --no-install-recommends flatpak clang lld llvm cmake ninja-build patchelf
+          # Microsoft's current STL headers (xwin) refuse clang older than 19; Ubuntu 24.04's default is 18
+          sudo apt-get install -yq --no-install-recommends flatpak clang-19 lld-19 llvm-19 cmake ninja-build patchelf
           # clang-cl, lld-link, llvm-rc and llvm-mt are in LLVM's own bin directory
-          echo "$(dirname "$(readlink -f "$(command -v clang)")")" >> "$GITHUB_PATH"
+          echo /usr/lib/llvm-19/bin >> "$GITHUB_PATH"
           # Ubuntu 24.04 blocks the unprivileged user namespaces bubblewrap (flatpak-builder) needs
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
