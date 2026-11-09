@@ -105,7 +105,8 @@ jobs:
       - name: Build
         env:
           SMOKE: '0'
-        run: ./release.sh "${{ steps.v.outputs.version }}"
+        # flatpak run org.flatpak.Builder finds the installed SDK through a session bus, and a runner has none
+        run: dbus-run-session -- ./release.sh "${{ steps.v.outputs.version }}"
 
       - name: Keep only the cache that matters
         if: always()
