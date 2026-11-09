@@ -1,0 +1,127 @@
+# Builds the AppImage and the Flatpak with release.sh, in the freedesktop 25.08 SDK, on GitHub's runners.
+#
+#   push a tag v<VERSION>        builds VERSION and attaches the files to a *draft* release (write the notes, publish)
+#   Actions > Build > Run        builds; "version" names it (default dev-<commit>), "release" also makes the draft
+#
+# The smoke test is skipped (SMOKE=0): it needs a Windows ISO and Shapr3D's package, which are not ours to keep in CI.
+# The first run compiles Wine (about an hour); later runs reuse flatpak-builder's ccache from the Actions cache.
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 0.0.8-beta); empty builds dev-<commit>'
+        required: false
+      release:
+        description: 'Attach the files to a draft GitHub release v<version>'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  XWIN_VERSION: 0.10.0
+  SDK: '25.08'
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - name: Version
+        id: v
+        run: |
+          if [ "${{ github.ref_type }}" = tag ]; then v=${GITHUB_REF_NAME#v}; rel=true
+          else v='${{ inputs.version }}'; rel='${{ inputs.release }}'; fi
+          [ -n "$v" ] || v=dev-${GITHUB_SHA::7}
+          [ "$rel" = true ] && [[ $v == dev-* ]] && { echo "::error::a release needs a version"; exit 1; }
+          echo "version=$v" >> "$GITHUB_OUTPUT"; echo "release=$rel" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Free disk space
+        # Wine's build in the SDK needs more than the runner's ~14 GB free
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune -af >/dev/null 2>&1 || true
+          df -h /
+
+      - name: Host packages
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -yq --no-install-recommends flatpak clang lld llvm cmake ninja-build patchelf
+          # clang-cl, lld-link, llvm-rc and llvm-mt are in LLVM's own bin directory
+          echo "$(dirname "$(readlink -f "$(command -v clang)")")" >> "$GITHUB_PATH"
+          # Ubuntu 24.04 blocks the unprivileged user namespaces bubblewrap (flatpak-builder) needs
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Flatpak SDK
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y --noninteractive flathub org.flatpak.Builder \
+            org.freedesktop.Platform//$SDK org.freedesktop.Sdk//$SDK \
+            org.freedesktop.Sdk.Extension.mingw-w64//$SDK org.freedesktop.Sdk.Extension.rust-stable//$SDK
+
+      - name: Cache the Windows SDK (xwin)
+        id: xwin-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/xwin
+          key: xwin-${{ env.XWIN_VERSION }}-debug
+
+      - name: Windows SDK (xwin)
+        if: steps.xwin-cache.outputs.cache-hit != 'true'
+        run: |
+          d=xwin-$XWIN_VERSION-x86_64-unknown-linux-musl
+          curl -sfL https://github.com/Jake-Shadle/xwin/releases/download/$XWIN_VERSION/$d.tar.gz | tar -xz
+          # Microsoft's licence for the SDK and CRT, accepted for this build; nothing of it is shipped
+          ./$d/xwin --accept-license --cache-dir "$RUNNER_TEMP/xwin-cache" splat --include-debug-libs --output ~/xwin
+          rm -rf "$RUNNER_TEMP/xwin-cache" "$d"
+
+      - name: Cache flatpak-builder (ccache and downloads)
+        uses: actions/cache@v4
+        with:
+          path: out/build/sdk-build/state
+          key: sdk-${{ env.SDK }}-${{ hashFiles('flatpak/*.yml') }}-${{ github.sha }}
+          restore-keys: |
+            sdk-${{ env.SDK }}-${{ hashFiles('flatpak/*.yml') }}-
+            sdk-${{ env.SDK }}-
+
+      - name: Build
+        env:
+          SMOKE: '0'
+        run: ./release.sh "${{ steps.v.outputs.version }}"
+
+      - name: Keep only the cache that matters
+        if: always()
+        # the build tree and repo are rebuilt from the state dir; caching them would double the size
+        run: rm -rf out/build/sdk-build/build out/build/sdk-build/repo out/build/sdk-build/state/rofiles
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shapr3d-linux-${{ steps.v.outputs.version }}
+          path: out/${{ steps.v.outputs.version }}/
+          retention-days: 14
+
+      - name: Draft release
+        if: steps.v.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.v.outputs.version }}
+        run: |
+          cd "out/$V"
+          gh release view "v$V" >/dev/null 2>&1 && { echo "::error::release v$V exists"; exit 1; }
+          gh release create "v$V" --draft --target "$GITHUB_SHA" --title "$V" \
+            --notes "Built by CI from shapr3d-linux \`${GITHUB_SHA::7}\` and wine-uwp \`$(git -C "$GITHUB_WORKSPACE/wine-uwp" rev-parse --short HEAD)\`. Not smoke-tested. Write the notes, then publish." \
+            SHA256SUMS shapr3d-linux-$V-x86_64.AppImage shapr3d-linux-$V-x86_64.AppImage.zsync shapr3d-linux-$V-x86_64.flatpak
