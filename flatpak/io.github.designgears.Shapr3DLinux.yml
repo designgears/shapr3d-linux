@@ -73,8 +73,8 @@ modules:
       - make install
     sources:
       - type: archive
-        url: https://dl.winehq.org/wine/source/11.x/wine-11.17.tar.xz
-        sha256: 8e752e29bba2901ad9f915139345c6ee67184b099d425704d915971ca5c055fc
+        url: https://dl.winehq.org/wine/source/11.x/wine-11.20.tar.xz
+        sha256: eac8ca448f9c0087f963026b4dc276d1e2b7fbb64056edc093e59bbb7e56fe28
       # our Wine source over it (wine/FILES lists every file; wine/BASE.txt names the base)
       - type: dir
         path: .build/wine
